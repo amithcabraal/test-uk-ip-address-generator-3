@@ -9,6 +9,8 @@ interface IPRange {
   country?: string;
   countryCode?: string;
   geonameId?: string;
+  startLong?: number; // Add cached long values for performance
+  endLong?: number;
 }
 
 interface CSVRow {
@@ -118,6 +120,18 @@ export const IPRangeProcessor = () => {
     processAllFiles();
   }, [maxmindLocations, maxmindBlocks]);
 
+  // Helper function to sort and cache IP ranges for performance
+  const sortAndCacheRanges = (ranges: IPRange[]): IPRange[] => {
+    const rangesWithCache = ranges.map(range => ({
+      ...range,
+      startLong: ipToLong(range.start),
+      endLong: ipToLong(range.end)
+    }));
+    
+    // Sort by start IP address (as long integer) for binary search
+    return rangesWithCache.sort((a, b) => a.startLong! - b.startLong!);
+  };
+
   const handleJSONFile = (content: string, fileName: string) => {
     const data = JSON.parse(content);
     const ranges = data.data.map((range: string[]) => ({
@@ -125,8 +139,10 @@ export const IPRangeProcessor = () => {
       end: range[1],
       count: parseInt(range[2].replace(/,/g, ''), 10)
     }));
-    setIpRanges(ranges);
-    setAllRanges(ranges);
+    
+    const sortedRanges = sortAndCacheRanges(ranges);
+    setIpRanges(sortedRanges);
+    setAllRanges(sortedRanges);
     setFileType('json');
     setAvailableCountries([]);
     setSelectedCountry('');
@@ -173,7 +189,8 @@ export const IPRangeProcessor = () => {
       name
     })).sort((a, b) => a.name.localeCompare(b.name));
 
-    setAllRanges(ranges);
+    const sortedRanges = sortAndCacheRanges(ranges);
+    setAllRanges(sortedRanges);
     setAvailableCountries(countries);
     setFileType('csv');
     setSelectedCountry('');
@@ -304,7 +321,8 @@ export const IPRangeProcessor = () => {
       name
     })).sort((a, b) => a.name.localeCompare(b.name));
 
-    setAllRanges(ranges);
+    const sortedRanges = sortAndCacheRanges(ranges);
+    setAllRanges(sortedRanges);
     setAvailableCountries(countries);
     setFileType('maxmind');
     setSelectedCountry('');
@@ -323,7 +341,9 @@ export const IPRangeProcessor = () => {
       setIpRanges([]);
     } else {
       const filteredRanges = allRanges.filter(range => range.countryCode === countryCode);
-      setIpRanges(filteredRanges);
+      // Sort and cache the filtered ranges as well
+      const sortedFilteredRanges = sortAndCacheRanges(filteredRanges);
+      setIpRanges(sortedFilteredRanges);
     }
   };
 
@@ -349,31 +369,38 @@ export const IPRangeProcessor = () => {
     ].join('.');
   };
 
-  const generateRandomIP = (start: string, end: string): string => {
-    const startLong = ipToLong(start);
-    const endLong = ipToLong(end);
-    const randomLong = Math.floor(Math.random() * (endLong - startLong + 1)) + startLong;
-    return longToIp(randomLong);
-  };
-
+  // Optimized binary search lookup function
   const lookupIPCountry = (ip: string): IPLookupResult => {
     const ipLong = ipToLong(ip);
     
-    // Search through all ranges to find a match
-    for (const range of allRanges) {
-      const startLong = ipToLong(range.start);
-      const endLong = ipToLong(range.end);
+    // Binary search through sorted ranges
+    let left = 0;
+    let right = allRanges.length - 1;
+    
+    while (left <= right) {
+      const mid = Math.floor((left + right) / 2);
+      const range = allRanges[mid];
+      const startLong = range.startLong || ipToLong(range.start);
+      const endLong = range.endLong || ipToLong(range.end);
       
       if (ipLong >= startLong && ipLong <= endLong) {
+        // Found the range containing this IP
         return {
           ip,
           countryCode: range.countryCode || 'Unknown',
           countryName: range.country || 'Unknown',
           found: true
         };
+      } else if (ipLong < startLong) {
+        // IP is before this range, search left half
+        right = mid - 1;
+      } else {
+        // IP is after this range, search right half
+        left = mid + 1;
       }
     }
     
+    // IP not found in any range
     return {
       ip,
       countryCode: 'Not Found',
@@ -412,9 +439,12 @@ export const IPRangeProcessor = () => {
       return;
     }
 
-    const results = ips.map(ip => lookupIPCountry(ip));
-    setLookupResults(results);
-    setLookupLoading(false);
+    // Use setTimeout to prevent UI blocking for large datasets
+    setTimeout(() => {
+      const results = ips.map(ip => lookupIPCountry(ip));
+      setLookupResults(results);
+      setLookupLoading(false);
+    }, 10);
   };
 
   const downloadLookupResults = () => {
@@ -436,6 +466,13 @@ export const IPRangeProcessor = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const generateRandomIP = (start: string, end: string): string => {
+    const startLong = ipToLong(start);
+    const endLong = ipToLong(end);
+    const randomLong = Math.floor(Math.random() * (endLong - startLong + 1)) + startLong;
+    return longToIp(randomLong);
   };
 
   const generateAndDownloadIPs = () => {
