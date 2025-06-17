@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1] - 2025-01-27
+
+### Added
+- **File Processing Indicators**: Added comprehensive visual feedback during file upload and processing
+  - Animated spinner and progress messages while files are being processed
+  - Real-time status updates showing which file is currently being processed
+  - Visual state changes in upload area (pulsing animation during processing)
+  - Processing state prevents user interaction until files are fully loaded
+
+### Enhanced
+- **Upload Area Visual States**: Improved upload area with distinct visual states
+  - Default state with upload icon and instructions
+  - Processing state with blue border and pulsing animation
+  - Success state with green border and checkmark indicators
+  - Drag-active state with blue highlighting
+- **User Experience**: Enhanced feedback and interaction design
+  - Disabled form controls during file processing to prevent conflicts
+  - Sequential file processing with visual feedback for each step
+  - Smooth transitions and hover effects on interactive elements
+  - Better error handling with specific file names in error messages
+
+### Technical Improvements
+- **Async File Processing**: Implemented proper async/await pattern for file processing
+- **State Management**: Added processing and processingFile state variables for better UX control
+- **Animation Classes**: Added Tailwind CSS animations for loading states and transitions
+- **Accessibility**: Improved accessibility with proper disabled states and visual feedback
+
 ## [1.2.0] - 2025-01-27
 
 ### Added
