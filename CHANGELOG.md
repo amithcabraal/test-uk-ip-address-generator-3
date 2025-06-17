@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.1] - 2025-01-27
+
+### Performance Improvements
+- **Optimized IP Lookup Performance**: Dramatically improved IP lookup speed and eliminated browser hanging
+  - Implemented binary search algorithm for IP range lookups (O(log N) vs O(N) complexity)
+  - Added automatic sorting of IP ranges on data load for binary search compatibility
+  - Cached long integer representations of IP addresses to avoid repeated conversions
+  - Added setTimeout wrapper for large lookup operations to prevent UI blocking
+  - Optimized memory usage with efficient data structures
+
+### Technical Enhancements
+- **Binary Search Implementation**: Fast logarithmic-time IP range matching
+  - Sorted IP ranges by start address for optimal search performance
+  - Pre-computed and cached long integer values for all IP ranges
+  - Efficient range boundary checking with minimal computational overhead
+- **Data Structure Optimization**: Enhanced IPRange interface with cached values
+  - Added startLong and endLong properties for performance caching
+  - Implemented sortAndCacheRanges helper function for consistent data preparation
+  - Optimized country filtering with pre-sorted ranges
+
+### User Experience
+- **Responsive Interface**: Eliminated browser freezing during large IP lookups
+  - Non-blocking lookup operations for better user experience
+  - Maintained real-time feedback and loading states
+  - Improved performance for datasets with thousands of IP ranges
+- **Scalability**: Enhanced support for large geographic databases
+  - Efficient handling of MaxMind GeoLite2 databases with millions of IP ranges
+  - Optimized CSV processing for large country-based IP datasets
+  - Reduced memory footprint and improved processing speed
+
 ## [1.4.0] - 2025-01-27
 
 ### Added
