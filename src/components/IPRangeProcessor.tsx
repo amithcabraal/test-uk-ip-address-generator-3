@@ -82,7 +82,7 @@ export const IPRangeProcessor = () => {
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setProcessing(true);
     
-    const processFile = async (file: File, index: number) => {
+    const processFile = async (file: File, _index: number) => {
       return new Promise<void>((resolve, reject) => {
         const reader = new FileReader();
         const fileName = file.name.toLowerCase();
@@ -212,7 +212,7 @@ export const IPRangeProcessor = () => {
     resetProfiles();
   };
 
-  const handleMaxMindLocationsFile = (content: string, fileName: string) => {
+  const handleMaxMindLocationsFile = (content: string, _fileName: string) => {
     const lines = content.trim().split('\n');
     const locationsMap = new Map<string, MaxMindLocation>();
     
@@ -244,7 +244,7 @@ export const IPRangeProcessor = () => {
     }
   };
 
-  const handleMaxMindBlocksFile = (content: string, fileName: string) => {
+  const handleMaxMindBlocksFile = (content: string, _fileName: string) => {
     const lines = content.trim().split('\n');
     const blocks: MaxMindBlock[] = [];
     
@@ -1053,7 +1053,7 @@ export const IPRangeProcessor = () => {
             <textarea
               value={ipLookupText}
               onChange={(e) => setIpLookupText(e.target.value)}
-              placeholder={`Enter IP addresses separated by newlines, spaces, or commas.\nExamples:\n192.168.1.1\n10.0.0.1, 172.16.0.1\n"8.8.8.8" "8.8.4.4"`}
+              placeholder={`Enter IP addresses separated by newlines, spaces, or commas.\nExamples:\n192.168.1.1\n10.0.0.1, 172.16.0.1\n\"8.8.8.8\" \"8.8.4.4\"`}
               className="w-full h-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white resize-vertical"
               disabled={processing || !hasCountryData()}
             />

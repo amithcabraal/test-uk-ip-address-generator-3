@@ -208,7 +208,7 @@ export const CountrySummary: FC<CountrySummaryProps> = ({ lookupResults }) => {
                   borderRadius: '8px',
                   color: 'white'
                 }}
-                formatter={(value: number, name: string) => [
+                formatter={(value: number, _name: string) => [
                   `${value} IPs`,
                   'Count'
                 ]}
@@ -218,7 +218,7 @@ export const CountrySummary: FC<CountrySummaryProps> = ({ lookupResults }) => {
                 }}
               />
               <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                {summaryData.map((entry, index) => (
+                {summaryData.map((_entry, index) => (
                   <Cell 
                     key={`cell-${index}`} 
                     fill={colors[index % colors.length]}
