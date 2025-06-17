@@ -553,7 +553,7 @@ export const IPRangeProcessor = () => {
 
   const generateIPsWithProfiles = (): string[] => {
     const generatedSet = new Set<string>();
-    const totalPercentage = getTotalPercentage();
+//     const totalPercentage = getTotalPercentage();
     const anywhereElsePercentage = getAnywhereElsePercentage();
     
     // Generate IPs for each country profile
