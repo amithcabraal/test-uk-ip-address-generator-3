@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2025-01-27
+
+### Added
+- **MaxMind GeoLite2 Format Support**: Added comprehensive support for MaxMind GeoLite2 database format
+  - Support for `GeoLite2-Country-Locations-en.csv` file containing geographic location data
+  - Support for `GeoLite2-Country-Blocks-IPv4.csv` file containing IP network blocks
+  - Automatic joining of location and block data using geoname_id relationships
+- **CIDR Notation Processing**: Automatic conversion from CIDR notation (e.g., 1.186.0.0/17) to IP ranges
+- **Multi-File Upload**: Enhanced file upload to handle multiple files simultaneously for MaxMind format
+- **Advanced CSV Parsing**: Improved CSV parsing to handle quoted fields and complex data structures
+- **Geographic Data Integration**: Seamless integration of geographic metadata with IP ranges
+
+### Enhanced
+- **File Type Detection**: Intelligent detection of MaxMind format files based on filename patterns
+- **Upload Status Feedback**: Enhanced status messages showing which MaxMind files are uploaded and missing
+- **Country Selection**: Extended country filtering to work with MaxMind's comprehensive geographic database
+- **Error Handling**: Improved error handling for complex multi-file uploads and data processing
+
+### Technical Improvements
+- **Data Structure Optimization**: Enhanced data structures to handle MaxMind's geoname_id relationships
+- **Memory Efficiency**: Optimized processing of large MaxMind database files
+- **Type Safety**: Added comprehensive TypeScript interfaces for MaxMind data structures
+- **Parsing Robustness**: Improved CSV parsing to handle various quote and delimiter scenarios
+
 ## [1.1.0] - 2025-01-27
 
 ### Added
