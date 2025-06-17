@@ -74,6 +74,10 @@ export const IPRangeProcessor = () => {
   const [lookupResults, setLookupResults] = useState<IPLookupResult[]>([]);
   const [lookupLoading, setLookupLoading] = useState(false);
 
+  // New state for batched lookup progress
+  const [processedCount, setProcessedCount] = useState(0);
+  const [totalIPsToLookup, setTotalIPsToLookup] = useState(0);
+
   // New state for generation profiles
   const [useProfiles, setUseProfiles] = useState(false);
   const [countryProfiles, setCountryProfiles] = useState<CountryProfile[]>([]);
@@ -440,6 +444,40 @@ export const IPRangeProcessor = () => {
     return ips.filter(ip => ipRegex.test(ip.trim())).map(ip => ip.trim());
   };
 
+  // Batched IP lookup function
+  const performBatchedLookup = (ips: string[], batchSize: number = 500) => {
+    const results: IPLookupResult[] = [];
+    let currentIndex = 0;
+
+    const processBatch = () => {
+      const endIndex = Math.min(currentIndex + batchSize, ips.length);
+      const batch = ips.slice(currentIndex, endIndex);
+      
+      // Process current batch
+      const batchResults = batch.map(ip => lookupIPCountry(ip));
+      results.push(...batchResults);
+      
+      // Update progress
+      setProcessedCount(results.length);
+      setLookupResults([...results]); // Update UI with current results
+      
+      currentIndex = endIndex;
+      
+      if (currentIndex < ips.length) {
+        // Schedule next batch
+        window.setTimeout(processBatch, 10);
+      } else {
+        // All done
+        setLookupLoading(false);
+        setProcessedCount(0);
+        setTotalIPsToLookup(0);
+      }
+    };
+
+    // Start processing
+    processBatch();
+  };
+
   const performIPLookup = () => {
     if (!ipLookupText.trim()) {
       alert('Please enter IP addresses to lookup');
@@ -460,12 +498,13 @@ export const IPRangeProcessor = () => {
       return;
     }
 
-    // Use window.setTimeout to prevent UI blocking for large datasets
-    window.setTimeout(() => {
-      const results = ips.map(ip => lookupIPCountry(ip));
-      setLookupResults(results);
-      setLookupLoading(false);
-    }, 10);
+    // Initialize progress tracking
+    setTotalIPsToLookup(ips.length);
+    setProcessedCount(0);
+    setLookupResults([]);
+
+    // Start batched processing
+    performBatchedLookup(ips);
   };
 
   const downloadLookupResults = () => {
@@ -1078,7 +1117,12 @@ export const IPRangeProcessor = () => {
             {lookupLoading ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                <span>Looking up...</span>
+                <span>
+                  {totalIPsToLookup > 0 
+                    ? `Looking up (${processedCount}/${totalIPsToLookup})...`
+                    : 'Looking up...'
+                  }
+                </span>
               </>
             ) : (
               <span>Lookup IP Countries</span>
@@ -1091,6 +1135,11 @@ export const IPRangeProcessor = () => {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                   Lookup Results ({lookupResults.length} IPs)
+                  {lookupLoading && totalIPsToLookup > 0 && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                      Processing: {processedCount}/{totalIPsToLookup}
+                    </span>
+                  )}
                 </h3>
                 <button
                   onClick={downloadLookupResults}

@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.1] - 2025-01-27
+
+### Fixed
+- **Batched IP Lookup Processing**: Resolved browser hanging issue during large IP address lookups
+  - Implemented batched processing with configurable batch size (default: 500 IPs per batch)
+  - Added real-time progress tracking showing "Looking up (X/Y)..." during processing
+  - Used `window.setTimeout` with 10ms delays between batches to prevent UI blocking
+  - Progressive results display - UI updates after each batch completion
+  - Added progress indicators in lookup results header showing current processing status
+
+### Enhanced
+- **Lookup Performance**: Dramatically improved responsiveness for large IP datasets
+  - Non-blocking batch processing prevents browser freezing
+  - Real-time progress feedback keeps users informed during long operations
+  - Maintains full functionality while processing thousands of IP addresses
+  - Graceful handling of processing interruption and error states
+
+### Technical Improvements
+- **State Management**: Added new state variables for batch processing control
+  - `processedCount`: Tracks number of IP addresses processed so far
+  - `totalIPsToLookup`: Stores total number of IP addresses to be processed
+  - Enhanced loading states with detailed progress information
+- **Batch Processing Algorithm**: Efficient chunked processing implementation
+  - Configurable batch size for optimal performance tuning
+  - Automatic batch scheduling using `window.setTimeout`
+  - Progressive result accumulation with real-time UI updates
+  - Proper cleanup and state reset on completion or cancellation
+
+### User Experience
+- **Progress Visibility**: Clear indication of lookup progress and status
+  - Dynamic button text showing current progress (e.g., "Looking up (150/1000)...")
+  - Results header displays processing status during batch operations
+  - Immediate feedback when processing starts and completes
+  - Responsive interface maintained throughout large lookup operations
+
 ## [1.5.0] - 2025-01-27
 
 ### Added
