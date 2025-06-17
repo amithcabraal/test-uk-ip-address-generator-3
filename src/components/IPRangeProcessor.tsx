@@ -7,6 +7,7 @@ interface IPRange {
   count: number;
   country?: string;
   countryCode?: string;
+  geonameId?: string;
 }
 
 interface CSVRow {
@@ -16,36 +17,64 @@ interface CSVRow {
   countryName: string;
 }
 
+interface MaxMindLocation {
+  geonameId: string;
+  localeCode: string;
+  continentCode: string;
+  continentName: string;
+  countryIsoCode: string;
+  countryName: string;
+  isInEuropeanUnion: string;
+}
+
+interface MaxMindBlock {
+  network: string;
+  geonameId: string;
+  registeredCountryGeonameId: string;
+  representedCountryGeonameId: string;
+  isAnonymousProxy: string;
+  isSatelliteProvider: string;
+  isAnycast: string;
+}
+
 export const IPRangeProcessor = () => {
   const [ipRanges, setIpRanges] = useState<IPRange[]>([]);
   const [allRanges, setAllRanges] = useState<IPRange[]>([]);
   const [numAddresses, setNumAddresses] = useState<number>(10);
   const [loading, setLoading] = useState(false);
-  const [fileType, setFileType] = useState<'json' | 'csv' | null>(null);
+  const [fileType, setFileType] = useState<'json' | 'csv' | 'maxmind' | null>(null);
   const [availableCountries, setAvailableCountries] = useState<Array<{code: string, name: string}>>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [maxmindLocations, setMaxmindLocations] = useState<Map<string, MaxMindLocation>>(new Map());
+  const [maxmindBlocks, setMaxmindBlocks] = useState<MaxMindBlock[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<{locations?: boolean, blocks?: boolean}>({});
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    const reader = new FileReader();
-    const fileName = file.name.toLowerCase();
+    acceptedFiles.forEach(file => {
+      const reader = new FileReader();
+      const fileName = file.name.toLowerCase();
 
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        
-        if (fileName.endsWith('.json')) {
-          handleJSONFile(content);
-        } else if (fileName.endsWith('.csv')) {
-          handleCSVFile(content);
+      reader.onload = (e) => {
+        try {
+          const content = e.target?.result as string;
+          
+          if (fileName.endsWith('.json')) {
+            handleJSONFile(content);
+          } else if (fileName.includes('geolite2-country-locations') || fileName.includes('locations')) {
+            handleMaxMindLocationsFile(content, fileName);
+          } else if (fileName.includes('geolite2-country-blocks') || fileName.includes('blocks')) {
+            handleMaxMindBlocksFile(content, fileName);
+          } else if (fileName.endsWith('.csv')) {
+            handleCSVFile(content);
+          }
+        } catch (error) {
+          alert(`Error parsing file ${file.name}. Please ensure it's a valid file format.`);
         }
-      } catch (error) {
-        alert('Error parsing file. Please ensure it\'s a valid JSON or CSV file.');
-      }
-    };
+      };
 
-    reader.readAsText(file);
-  }, []);
+      reader.readAsText(file);
+    });
+  }, [maxmindLocations, maxmindBlocks]);
 
   const handleJSONFile = (content: string) => {
     const data = JSON.parse(content);
@@ -59,6 +88,7 @@ export const IPRangeProcessor = () => {
     setFileType('json');
     setAvailableCountries([]);
     setSelectedCountry('');
+    resetMaxMindData();
   };
 
   const handleCSVFile = (content: string) => {
@@ -67,7 +97,6 @@ export const IPRangeProcessor = () => {
     const countriesMap = new Map<string, string>();
 
     lines.forEach(line => {
-      // Remove quotes and split by comma
       const cleanLine = line.replace(/"/g, '');
       const parts = cleanLine.split(',');
       
@@ -83,7 +112,6 @@ export const IPRangeProcessor = () => {
       }
     });
 
-    // Convert to IP ranges
     const ranges = csvData.map(row => {
       const startIP = longToIp(parseInt(row.startLong));
       const endIP = longToIp(parseInt(row.endLong));
@@ -98,7 +126,6 @@ export const IPRangeProcessor = () => {
       };
     });
 
-    // Set up countries dropdown
     const countries = Array.from(countriesMap.entries()).map(([code, name]) => ({
       code,
       name
@@ -108,7 +135,144 @@ export const IPRangeProcessor = () => {
     setAvailableCountries(countries);
     setFileType('csv');
     setSelectedCountry('');
-    setIpRanges([]); // Clear until country is selected
+    setIpRanges([]);
+    resetMaxMindData();
+  };
+
+  const handleMaxMindLocationsFile = (content: string, fileName: string) => {
+    const lines = content.trim().split('\n');
+    const locationsMap = new Map<string, MaxMindLocation>();
+    
+    // Skip header line
+    const dataLines = lines.slice(1);
+    
+    dataLines.forEach(line => {
+      const parts = parseCSVLine(line);
+      if (parts.length >= 6) {
+        const location: MaxMindLocation = {
+          geonameId: parts[0],
+          localeCode: parts[1],
+          continentCode: parts[2],
+          continentName: parts[3],
+          countryIsoCode: parts[4],
+          countryName: parts[5],
+          isInEuropeanUnion: parts[6] || '0'
+        };
+        locationsMap.set(location.geonameId, location);
+      }
+    });
+
+    setMaxmindLocations(locationsMap);
+    setUploadedFiles(prev => ({ ...prev, locations: true }));
+    
+    // If we already have blocks, process the combined data
+    if (maxmindBlocks.length > 0) {
+      processMaxMindData(locationsMap, maxmindBlocks);
+    }
+  };
+
+  const handleMaxMindBlocksFile = (content: string, fileName: string) => {
+    const lines = content.trim().split('\n');
+    const blocks: MaxMindBlock[] = [];
+    
+    // Skip header line
+    const dataLines = lines.slice(1);
+    
+    dataLines.forEach(line => {
+      const parts = parseCSVLine(line);
+      if (parts.length >= 3) {
+        const block: MaxMindBlock = {
+          network: parts[0],
+          geonameId: parts[1],
+          registeredCountryGeonameId: parts[2],
+          representedCountryGeonameId: parts[3] || '',
+          isAnonymousProxy: parts[4] || '0',
+          isSatelliteProvider: parts[5] || '0',
+          isAnycast: parts[6] || '0'
+        };
+        blocks.push(block);
+      }
+    });
+
+    setMaxmindBlocks(blocks);
+    setUploadedFiles(prev => ({ ...prev, blocks: true }));
+    
+    // If we already have locations, process the combined data
+    if (maxmindLocations.size > 0) {
+      processMaxMindData(maxmindLocations, blocks);
+    }
+  };
+
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    result.push(current.trim());
+    return result;
+  };
+
+  const processMaxMindData = (locations: Map<string, MaxMindLocation>, blocks: MaxMindBlock[]) => {
+    const ranges: IPRange[] = [];
+    const countriesMap = new Map<string, string>();
+
+    blocks.forEach(block => {
+      // Use geonameId first, then fall back to registeredCountryGeonameId
+      const geonameId = block.geonameId || block.registeredCountryGeonameId;
+      const location = locations.get(geonameId);
+      
+      if (location && location.countryIsoCode) {
+        const [network, cidr] = block.network.split('/');
+        const cidrNum = parseInt(cidr);
+        const networkLong = ipToLong(network);
+        const hostBits = 32 - cidrNum;
+        const numHosts = Math.pow(2, hostBits);
+        const startLong = networkLong;
+        const endLong = startLong + numHosts - 1;
+        
+        const range: IPRange = {
+          start: longToIp(startLong),
+          end: longToIp(endLong),
+          count: numHosts,
+          country: location.countryName,
+          countryCode: location.countryIsoCode,
+          geonameId: geonameId
+        };
+        
+        ranges.push(range);
+        countriesMap.set(location.countryIsoCode, location.countryName);
+      }
+    });
+
+    const countries = Array.from(countriesMap.entries()).map(([code, name]) => ({
+      code,
+      name
+    })).sort((a, b) => a.name.localeCompare(b.name));
+
+    setAllRanges(ranges);
+    setAvailableCountries(countries);
+    setFileType('maxmind');
+    setSelectedCountry('');
+    setIpRanges([]);
+  };
+
+  const resetMaxMindData = () => {
+    setMaxmindLocations(new Map());
+    setMaxmindBlocks([]);
+    setUploadedFiles({});
   };
 
   const handleCountryChange = (countryCode: string) => {
@@ -127,7 +291,7 @@ export const IPRangeProcessor = () => {
       'application/json': ['.json'],
       'text/csv': ['.csv']
     },
-    multiple: false
+    multiple: true
   });
 
   const ipToLong = (ip: string): number => {
@@ -152,7 +316,7 @@ export const IPRangeProcessor = () => {
 
   const generateAndDownloadIPs = () => {
     if (ipRanges.length === 0) {
-      if (fileType === 'csv' && selectedCountry === '') {
+      if ((fileType === 'csv' || fileType === 'maxmind') && selectedCountry === '') {
         alert('Please select a country first');
       } else {
         alert('Please upload IP ranges first');
@@ -171,13 +335,12 @@ export const IPRangeProcessor = () => {
       generatedSet.add(ip);
     }
 
-    // Create and download file
     const content = Array.from(generatedSet).join('\n');
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = fileType === 'csv' && selectedCountry 
+    a.download = (fileType === 'csv' || fileType === 'maxmind') && selectedCountry 
       ? `generated_ips_${selectedCountry.toLowerCase()}.txt`
       : 'generated_ips.txt';
     document.body.appendChild(a);
@@ -198,8 +361,37 @@ export const IPRangeProcessor = () => {
         const selectedCountryName = availableCountries.find(c => c.code === selectedCountry)?.name || selectedCountry;
         return `✓ Loaded ${ipRanges.length} IP ranges for ${selectedCountryName}`;
       }
+    } else if (fileType === 'maxmind') {
+      const { locations, blocks } = uploadedFiles;
+      if (!locations || !blocks) {
+        const missing = [];
+        if (!locations) missing.push('GeoLite2-Country-Locations-en.csv');
+        if (!blocks) missing.push('GeoLite2-Country-Blocks-IPv4.csv');
+        return `⚠️ MaxMind format detected. Please upload: ${missing.join(' and ')}`;
+      } else if (selectedCountry === '') {
+        return `✓ Loaded MaxMind data with ${availableCountries.length} countries. Please select a country.`;
+      } else {
+        const selectedCountryName = availableCountries.find(c => c.code === selectedCountry)?.name || selectedCountry;
+        return `✓ Loaded ${ipRanges.length} IP ranges for ${selectedCountryName} (MaxMind)`;
+      }
     }
     return null;
+  };
+
+  const getUploadInstructions = () => {
+    if (fileType === 'maxmind') {
+      const { locations, blocks } = uploadedFiles;
+      if (!locations && !blocks) {
+        return 'Drop MaxMind GeoLite2 files here (Locations and Blocks CSV files)';
+      } else if (!locations) {
+        return 'Drop GeoLite2-Country-Locations-en.csv file here';
+      } else if (!blocks) {
+        return 'Drop GeoLite2-Country-Blocks-IPv4.csv file here';
+      }
+    }
+    return isDragActive
+      ? 'Drop the IP ranges file(s) here'
+      : 'Drag and drop IP ranges file(s) here, or click to select';
   };
 
   return (
@@ -211,7 +403,7 @@ export const IPRangeProcessor = () => {
             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
             : 'border-gray-300 dark:border-gray-600'
           }
-          ${(ipRanges.length > 0 || fileType === 'csv') ? 'border-green-500' : ''}`}
+          ${(ipRanges.length > 0 || fileType) ? 'border-green-500' : ''}`}
       >
         <input {...getInputProps()} />
         {fileType ? (
@@ -220,24 +412,25 @@ export const IPRangeProcessor = () => {
               {getStatusMessage()}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Drop a new file to replace
+              {fileType === 'maxmind' && (!uploadedFiles.locations || !uploadedFiles.blocks)
+                ? getUploadInstructions()
+                : 'Drop new file(s) to replace'
+              }
             </p>
           </div>
         ) : (
           <div>
             <p className="text-gray-600 dark:text-gray-300">
-              {isDragActive
-                ? 'Drop the IP ranges file here'
-                : 'Drag and drop IP ranges file here, or click to select'}
+              {getUploadInstructions()}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              JSON or CSV file format supported
+              Supports: JSON, CSV, or MaxMind GeoLite2 format
             </p>
           </div>
         )}
       </div>
 
-      {fileType === 'csv' && availableCountries.length > 0 && (
+      {(fileType === 'csv' || fileType === 'maxmind') && availableCountries.length > 0 && (
         <div className="mt-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Select Country
