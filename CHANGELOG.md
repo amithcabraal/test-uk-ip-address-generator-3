@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2025-01-27
+
+### Added
+- **Sophisticated IP Generation Profiles**: Advanced country distribution system for precise IP generation control
+  - Toggle between simple country selection and advanced profile-based generation
+  - Multiple country profiles with custom percentage allocation (e.g., 90% UK, 5% Ireland, 5% anywhere else)
+  - Automatic "Anywhere else" calculation to ensure total equals 100%
+  - Real-time percentage validation with visual feedback
+  - +/- buttons for easy percentage adjustment with smart limits
+  - Profile management with add/remove country functionality
+  - Visual indicators for total distribution status (green for 100%, red for over 100%)
+
+### Enhanced
+- **Generation Mode Interface**: Improved user experience for IP generation
+  - Profile toggle checkbox with descriptive help text
+  - Dynamic country dropdown selection for each profile
+  - Intuitive percentage controls with increment/decrement buttons
+  - Real-time validation preventing totals over 100%
+  - Clear visual separation between profile and simple modes
+  - Enhanced status messages showing current generation mode
+- **Smart File Naming**: Generated files now reflect the generation method
+  - Profile-based generations: `generated_ips_profile.txt`
+  - Country-specific generations: `generated_ips_[country].txt`
+  - Default generations: `generated_ips.txt`
+
+### Technical Improvements
+- **Profile-Based Generation Algorithm**: Sophisticated IP distribution system
+  - Percentage-based allocation ensuring accurate country representation
+  - Fallback to "anywhere else" for remaining percentage allocation
+  - Duplicate prevention across all country profiles
+  - Efficient random selection from country-specific IP ranges
+- **State Management**: Enhanced component state handling
+  - Profile state management with unique IDs
+  - Automatic profile reset when switching file types
+  - Validation state tracking for percentage totals
+  - Smart enabling/disabling of controls based on data availability
+- **User Interface Logic**: Improved control flow and validation
+  - Dynamic button states based on percentage limits
+  - Real-time total calculation and display
+  - Conditional rendering based on file type and mode selection
+  - Enhanced error handling for profile validation
+
+### User Experience
+- **Intuitive Profile Creation**: Streamlined workflow for creating distribution profiles
+  - First profile defaults to 100% for immediate usability
+  - Easy country selection from available geographic data
+  - Visual feedback for percentage adjustments
+  - Clear indication of remaining percentage allocation
+- **Professional Validation**: Comprehensive input validation and feedback
+  - Real-time percentage total calculation with color-coded status
+  - Prevention of invalid configurations (over 100% total)
+  - Clear error messages and guidance for corrections
+  - Disabled states for invalid operations
+
 ## [1.4.1] - 2025-01-27
 
 ### Performance Improvements

@@ -47,6 +47,13 @@ interface IPLookupResult {
   found: boolean;
 }
 
+interface CountryProfile {
+  id: string;
+  countryCode: string;
+  countryName: string;
+  percentage: number;
+}
+
 export const IPRangeProcessor = () => {
   const [ipRanges, setIpRanges] = useState<IPRange[]>([]);
   const [allRanges, setAllRanges] = useState<IPRange[]>([]);
@@ -66,6 +73,11 @@ export const IPRangeProcessor = () => {
   const [ipLookupText, setIpLookupText] = useState<string>('');
   const [lookupResults, setLookupResults] = useState<IPLookupResult[]>([]);
   const [lookupLoading, setLookupLoading] = useState(false);
+
+  // New state for generation profiles
+  const [useProfiles, setUseProfiles] = useState(false);
+  const [countryProfiles, setCountryProfiles] = useState<CountryProfile[]>([]);
+  const [nextProfileId, setNextProfileId] = useState(1);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setProcessing(true);
@@ -147,6 +159,7 @@ export const IPRangeProcessor = () => {
     setAvailableCountries([]);
     setSelectedCountry('');
     resetMaxMindData();
+    resetProfiles();
   };
 
   const handleCSVFile = (content: string, fileName: string) => {
@@ -196,6 +209,7 @@ export const IPRangeProcessor = () => {
     setSelectedCountry('');
     setIpRanges([]);
     resetMaxMindData();
+    resetProfiles();
   };
 
   const handleMaxMindLocationsFile = (content: string, fileName: string) => {
@@ -327,12 +341,19 @@ export const IPRangeProcessor = () => {
     setFileType('maxmind');
     setSelectedCountry('');
     setIpRanges([]);
+    resetProfiles();
   };
 
   const resetMaxMindData = () => {
     setMaxmindLocations(new Map());
     setMaxmindBlocks([]);
     setUploadedFiles({});
+  };
+
+  const resetProfiles = () => {
+    setUseProfiles(false);
+    setCountryProfiles([]);
+    setNextProfileId(1);
   };
 
   const handleCountryChange = (countryCode: string) => {
@@ -468,6 +489,61 @@ export const IPRangeProcessor = () => {
     URL.revokeObjectURL(url);
   };
 
+  // Profile management functions
+  const addCountryProfile = () => {
+    if (availableCountries.length === 0) return;
+    
+    const newProfile: CountryProfile = {
+      id: nextProfileId.toString(),
+      countryCode: availableCountries[0].code,
+      countryName: availableCountries[0].name,
+      percentage: countryProfiles.length === 0 ? 100 : 0
+    };
+    
+    setCountryProfiles([...countryProfiles, newProfile]);
+    setNextProfileId(nextProfileId + 1);
+  };
+
+  const removeCountryProfile = (id: string) => {
+    setCountryProfiles(countryProfiles.filter(profile => profile.id !== id));
+  };
+
+  const updateProfileCountry = (id: string, countryCode: string) => {
+    const country = availableCountries.find(c => c.code === countryCode);
+    if (!country) return;
+
+    setCountryProfiles(countryProfiles.map(profile => 
+      profile.id === id 
+        ? { ...profile, countryCode, countryName: country.name }
+        : profile
+    ));
+  };
+
+  const updateProfilePercentage = (id: string, percentage: number) => {
+    setCountryProfiles(countryProfiles.map(profile => 
+      profile.id === id 
+        ? { ...profile, percentage: Math.max(0, Math.min(100, percentage)) }
+        : profile
+    ));
+  };
+
+  const getTotalPercentage = () => {
+    return countryProfiles.reduce((sum, profile) => sum + profile.percentage, 0);
+  };
+
+  const getAnywhereElsePercentage = () => {
+    const total = getTotalPercentage();
+    return Math.max(0, 100 - total);
+  };
+
+  const canIncreasePercentage = (currentPercentage: number) => {
+    return getTotalPercentage() < 100;
+  };
+
+  const canDecreasePercentage = (currentPercentage: number) => {
+    return currentPercentage > 0;
+  };
+
   const generateRandomIP = (start: string, end: string): string => {
     const startLong = ipToLong(start);
     const endLong = ipToLong(end);
@@ -475,10 +551,82 @@ export const IPRangeProcessor = () => {
     return longToIp(randomLong);
   };
 
+  const generateIPsWithProfiles = (): string[] => {
+    const generatedSet = new Set<string>();
+    const totalPercentage = getTotalPercentage();
+    const anywhereElsePercentage = getAnywhereElsePercentage();
+    
+    // Generate IPs for each country profile
+    countryProfiles.forEach(profile => {
+      const targetCount = Math.floor((profile.percentage / 100) * numAddresses);
+      const countryRanges = allRanges.filter(range => range.countryCode === profile.countryCode);
+      
+      if (countryRanges.length === 0) return;
+      
+      let generated = 0;
+      while (generated < targetCount && generatedSet.size < numAddresses) {
+        const rangeIndex = Math.floor(Math.random() * countryRanges.length);
+        const range = countryRanges[rangeIndex];
+        const ip = generateRandomIP(range.start, range.end);
+        
+        if (!generatedSet.has(ip)) {
+          generatedSet.add(ip);
+          generated++;
+        }
+      }
+    });
+    
+    // Generate remaining IPs from anywhere else
+    if (anywhereElsePercentage > 0) {
+      const remainingCount = Math.floor((anywhereElsePercentage / 100) * numAddresses);
+      let generated = 0;
+      
+      while (generated < remainingCount && generatedSet.size < numAddresses) {
+        const rangeIndex = Math.floor(Math.random() * allRanges.length);
+        const range = allRanges[rangeIndex];
+        const ip = generateRandomIP(range.start, range.end);
+        
+        if (!generatedSet.has(ip)) {
+          generatedSet.add(ip);
+          generated++;
+        }
+      }
+    }
+    
+    // Fill up to the exact number requested if needed
+    while (generatedSet.size < numAddresses && allRanges.length > 0) {
+      const rangeIndex = Math.floor(Math.random() * allRanges.length);
+      const range = allRanges[rangeIndex];
+      const ip = generateRandomIP(range.start, range.end);
+      generatedSet.add(ip);
+    }
+    
+    return Array.from(generatedSet);
+  };
+
   const generateAndDownloadIPs = () => {
-    if (ipRanges.length === 0) {
-      if ((fileType === 'csv' || fileType === 'maxmind') && selectedCountry === '') {
-        alert('Please select a country first');
+    let rangesToUse: IPRange[] = [];
+    
+    if (useProfiles && (fileType === 'csv' || fileType === 'maxmind')) {
+      if (countryProfiles.length === 0) {
+        alert('Please add at least one country profile');
+        return;
+      }
+      
+      const totalPercentage = getTotalPercentage();
+      if (totalPercentage > 100) {
+        alert('Total percentage cannot exceed 100%');
+        return;
+      }
+      
+      rangesToUse = allRanges;
+    } else {
+      rangesToUse = ipRanges;
+    }
+    
+    if (rangesToUse.length === 0) {
+      if ((fileType === 'csv' || fileType === 'maxmind') && selectedCountry === '' && !useProfiles) {
+        alert('Please select a country first or use profiles');
       } else {
         alert('Please upload IP ranges first');
       }
@@ -486,24 +634,40 @@ export const IPRangeProcessor = () => {
     }
 
     setLoading(true);
-    const generatedSet = new Set<string>();
-    const totalRanges = ipRanges.length;
     
-    while (generatedSet.size < numAddresses) {
-      const rangeIndex = Math.floor(Math.random() * totalRanges);
-      const range = ipRanges[rangeIndex];
-      const ip = generateRandomIP(range.start, range.end);
-      generatedSet.add(ip);
+    let generatedIPs: string[];
+    
+    if (useProfiles && (fileType === 'csv' || fileType === 'maxmind')) {
+      generatedIPs = generateIPsWithProfiles();
+    } else {
+      // Original generation logic
+      const generatedSet = new Set<string>();
+      const totalRanges = rangesToUse.length;
+      
+      while (generatedSet.size < numAddresses) {
+        const rangeIndex = Math.floor(Math.random() * totalRanges);
+        const range = rangesToUse[rangeIndex];
+        const ip = generateRandomIP(range.start, range.end);
+        generatedSet.add(ip);
+      }
+      
+      generatedIPs = Array.from(generatedSet);
     }
 
-    const content = Array.from(generatedSet).join('\n');
+    const content = generatedIPs.join('\n');
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = (fileType === 'csv' || fileType === 'maxmind') && selectedCountry 
-      ? `generated_ips_${selectedCountry.toLowerCase()}.txt`
-      : 'generated_ips.txt';
+    
+    let filename = 'generated_ips.txt';
+    if (useProfiles) {
+      filename = 'generated_ips_profile.txt';
+    } else if ((fileType === 'csv' || fileType === 'maxmind') && selectedCountry) {
+      filename = `generated_ips_${selectedCountry.toLowerCase()}.txt`;
+    }
+    
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -520,8 +684,10 @@ export const IPRangeProcessor = () => {
     if (fileType === 'json' && ipRanges.length > 0) {
       return `✅ Loaded ${ipRanges.length} IP ranges from JSON file`;
     } else if (fileType === 'csv') {
-      if (selectedCountry === '') {
-        return `✅ Loaded CSV file with ${availableCountries.length} countries. Please select a country.`;
+      if (selectedCountry === '' && !useProfiles) {
+        return `✅ Loaded CSV file with ${availableCountries.length} countries. Please select a country or use profiles.`;
+      } else if (useProfiles) {
+        return `✅ Loaded CSV file with ${availableCountries.length} countries. Using generation profiles.`;
       } else {
         const selectedCountryName = availableCountries.find(c => c.code === selectedCountry)?.name || selectedCountry;
         return `✅ Loaded ${ipRanges.length} IP ranges for ${selectedCountryName}`;
@@ -533,8 +699,10 @@ export const IPRangeProcessor = () => {
         if (!locations) missing.push('GeoLite2-Country-Locations-en.csv');
         if (!blocks) missing.push('GeoLite2-Country-Blocks-IPv4.csv');
         return `⚠️ MaxMind format detected. Please upload: ${missing.join(' and ')}`;
-      } else if (selectedCountry === '') {
-        return `✅ Loaded MaxMind data with ${availableCountries.length} countries. Please select a country.`;
+      } else if (selectedCountry === '' && !useProfiles) {
+        return `✅ Loaded MaxMind data with ${availableCountries.length} countries. Please select a country or use profiles.`;
+      } else if (useProfiles) {
+        return `✅ Loaded MaxMind data with ${availableCountries.length} countries. Using generation profiles.`;
       } else {
         const selectedCountryName = availableCountries.find(c => c.code === selectedCountry)?.name || selectedCountry;
         return `✅ Loaded ${ipRanges.length} IP ranges for ${selectedCountryName} (MaxMind)`;
@@ -581,6 +749,10 @@ export const IPRangeProcessor = () => {
 
   const hasCountryData = () => {
     return (fileType === 'csv' || fileType === 'maxmind') && allRanges.length > 0;
+  };
+
+  const canUseProfiles = () => {
+    return hasCountryData() && availableCountries.length > 0;
   };
 
   return (
@@ -665,8 +837,156 @@ export const IPRangeProcessor = () => {
 
       {mode === 'generate' ? (
         <>
-          {/* Country Selection for Generate Mode */}
-          {(fileType === 'csv' || fileType === 'maxmind') && availableCountries.length > 0 && (
+          {/* Profile Toggle */}
+          {canUseProfiles() && (
+            <div className="mt-6">
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="useProfiles"
+                  checked={useProfiles}
+                  onChange={(e) => {
+                    setUseProfiles(e.target.checked);
+                    if (e.target.checked && countryProfiles.length === 0) {
+                      // Add first profile with 100%
+                      addCountryProfile();
+                    }
+                  }}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  disabled={processing}
+                />
+                <label htmlFor="useProfiles" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Use country distribution profiles
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Create sophisticated IP generation profiles with custom country percentages
+              </p>
+            </div>
+          )}
+
+          {/* Country Profiles */}
+          {useProfiles && canUseProfiles() && (
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                  Country Distribution Profiles
+                </h3>
+                <button
+                  onClick={addCountryProfile}
+                  disabled={processing}
+                  className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition-colors duration-200 disabled:bg-gray-400"
+                >
+                  Add Country
+                </button>
+              </div>
+
+              {countryProfiles.map((profile) => (
+                <div key={profile.id} className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <select
+                    value={profile.countryCode}
+                    onChange={(e) => updateProfileCountry(profile.id, e.target.value)}
+                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                    disabled={processing}
+                  >
+                    {availableCountries.map(country => (
+                      <option key={country.code} value={country.code}>
+                        {country.name} ({country.code})
+                      </option>
+                    ))}
+                  </select>
+                  
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => updateProfilePercentage(profile.id, profile.percentage - 1)}
+                      disabled={processing || !canDecreasePercentage(profile.percentage)}
+                      className="w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      -
+                    </button>
+                    
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={profile.percentage}
+                      onChange={(e) => updateProfilePercentage(profile.id, parseInt(e.target.value) || 0)}
+                      className="w-16 text-center rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                      disabled={processing}
+                    />
+                    
+                    <button
+                      onClick={() => updateProfilePercentage(profile.id, profile.percentage + 1)}
+                      disabled={processing || !canIncreasePercentage(profile.percentage)}
+                      className="w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      +
+                    </button>
+                    
+                    <span className="text-sm text-gray-600 dark:text-gray-300 w-6">%</span>
+                  </div>
+                  
+                  <button
+                    onClick={() => removeCountryProfile(profile.id)}
+                    disabled={processing}
+                    className="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-md text-sm font-medium disabled:bg-gray-400"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+
+              {/* Anywhere Else Profile */}
+              {getAnywhereElsePercentage() > 0 && (
+                <div className="flex items-center space-x-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <div className="flex-1 text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                    Anywhere else in the world
+                  </div>
+                  <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                    {getAnywhereElsePercentage()}%
+                  </div>
+                </div>
+              )}
+
+              {/* Total Percentage Display */}
+              <div className={`p-3 rounded-lg border ${
+                getTotalPercentage() === 100 
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                  : getTotalPercentage() > 100
+                  ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                  : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-sm font-medium ${
+                    getTotalPercentage() === 100 
+                      ? 'text-green-800 dark:text-green-200' 
+                      : getTotalPercentage() > 100
+                      ? 'text-red-800 dark:text-red-200'
+                      : 'text-blue-800 dark:text-blue-200'
+                  }`}>
+                    Total Distribution
+                  </span>
+                  <span className={`text-sm font-bold ${
+                    getTotalPercentage() === 100 
+                      ? 'text-green-800 dark:text-green-200' 
+                      : getTotalPercentage() > 100
+                      ? 'text-red-800 dark:text-red-200'
+                      : 'text-blue-800 dark:text-blue-200'
+                  }`}>
+                    {getTotalPercentage()}% + {getAnywhereElsePercentage()}% = 100%
+                  </span>
+                </div>
+                {getTotalPercentage() > 100 && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                    Total percentage cannot exceed 100%. Please adjust the values.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Country Selection for Generate Mode (when not using profiles) */}
+          {!useProfiles && (fileType === 'csv' || fileType === 'maxmind') && availableCountries.length > 0 && (
             <div className="mt-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Select Country
@@ -705,9 +1025,9 @@ export const IPRangeProcessor = () => {
           {/* Generate Button */}
           <button
             onClick={generateAndDownloadIPs}
-            disabled={loading || processing || ipRanges.length === 0}
+            disabled={loading || processing || (useProfiles ? countryProfiles.length === 0 || getTotalPercentage() > 100 : ipRanges.length === 0)}
             className={`mt-4 w-full px-4 py-2 rounded-md text-white font-medium transition-all duration-200 flex items-center justify-center space-x-2
-              ${loading || processing || ipRanges.length === 0
+              ${loading || processing || (useProfiles ? countryProfiles.length === 0 || getTotalPercentage() > 100 : ipRanges.length === 0)
                 ? 'bg-gray-400 cursor-not-allowed'
                 : 'bg-blue-500 hover:bg-blue-600 hover:shadow-lg transform hover:scale-[1.02]'
               }
