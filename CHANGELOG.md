@@ -2,6 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2025-01-27
+
+### Added
+- **Country Summary Visualization**: Comprehensive analytics for IP lookup results
+  - Summary statistics showing total countries found, IPs located, and IPs not found
+  - Detailed country distribution table with IP counts and percentages
+  - Interactive bar chart visualization using Recharts library
+  - Color-coded country indicators for easy identification
+  - Separate CSV download for country summary data
+- **Enhanced Data Visualization**: Professional charts and graphs
+  - Responsive bar chart with hover tooltips showing detailed country information
+  - Custom color palette for up to 15 different countries
+  - Rotated country code labels for better readability
+  - Dark mode compatible chart styling
+
+### Enhanced
+- **Lookup Results Display**: Improved presentation of IP lookup data
+  - Country summary section appears below detailed lookup results
+  - Visual separation between individual results and aggregate statistics
+  - Consistent styling with existing application theme
+- **Export Functionality**: Extended download capabilities
+  - Individual lookup results CSV export
+  - Separate country summary CSV export with aggregated statistics
+  - Properly formatted CSV files with headers and percentage calculations
+
+### Technical Improvements
+- **Chart Integration**: Added Recharts library for data visualization
+  - Responsive container for mobile-friendly charts
+  - Custom tooltip formatting with country names and codes
+  - Optimized rendering for large datasets
+- **Data Processing**: Enhanced analytics calculations
+  - Efficient country grouping and counting algorithms
+  - Percentage calculations with proper rounding
+  - Memory-efficient processing of large lookup result sets
+- **Component Architecture**: Modular design for maintainability
+  - Separate CountrySummary component for reusability
+  - Clean separation of concerns between lookup and visualization
+  - TypeScript interfaces for type safety
+
+### User Experience
+- **Visual Analytics**: Clear presentation of country distribution data
+  - At-a-glance statistics cards showing key metrics
+  - Sortable table with country rankings by IP count
+  - Interactive chart with hover states for detailed information
+- **Professional Styling**: Consistent design language throughout
+  - Matching color schemes with application theme
+  - Proper spacing and typography hierarchy
+  - Responsive design for all screen sizes
+
 ## [1.3.0] - 2025-01-27
 
 ### Added
