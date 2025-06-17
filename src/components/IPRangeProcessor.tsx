@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { CountrySummary } from './CountrySummary';
 
 interface IPRange {
   start: string;
@@ -695,7 +696,7 @@ export const IPRangeProcessor = () => {
             <textarea
               value={ipLookupText}
               onChange={(e) => setIpLookupText(e.target.value)}
-              placeholder="Enter IP addresses separated by newlines, spaces, or commas.&#10;Examples:&#10;192.168.1.1&#10;10.0.0.1, 172.16.0.1&#10;&quot;8.8.8.8&quot; &quot;8.8.4.4&quot;"
+              placeholder="Enter IP addresses separated by newlines, spaces, or commas.&#10;Examples:&#10;192.168.1.1&#10;10.0.0.1, 172.16.0.1&#10;"8.8.8.8" "8.8.4.4""
               className="w-full h-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white resize-vertical"
               disabled={processing || !hasCountryData()}
             />
@@ -795,6 +796,9 @@ export const IPRangeProcessor = () => {
                   Not Found: {lookupResults.filter(r => !r.found).length}
                 </p>
               </div>
+
+              {/* Country Summary Component */}
+              <CountrySummary lookupResults={lookupResults} />
             </div>
           )}
         </>
