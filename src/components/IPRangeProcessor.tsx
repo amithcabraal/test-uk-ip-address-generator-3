@@ -94,13 +94,13 @@ export const IPRangeProcessor = () => {
             const content = e.target?.result as string;
             
             if (fileName.endsWith('.json')) {
-              handleJSONFile(content, file.name);
+              handleJSONFile(content);
             } else if (fileName.includes('geolite2-country-locations') || fileName.includes('locations')) {
               handleMaxMindLocationsFile(content, fileName);
             } else if (fileName.includes('geolite2-country-blocks') || fileName.includes('blocks')) {
               handleMaxMindBlocksFile(content, fileName);
             } else if (fileName.endsWith('.csv')) {
-              handleCSVFile(content, file.name);
+              handleCSVFile(content);
             }
             resolve();
           } catch (error) {
@@ -144,7 +144,7 @@ export const IPRangeProcessor = () => {
     return rangesWithCache.sort((a, b) => a.startLong! - b.startLong!);
   };
 
-  const handleJSONFile = (content: string, fileName: string) => {
+  const handleJSONFile = (content: string) => {
     const data = JSON.parse(content);
     const ranges = data.data.map((range: string[]) => ({
       start: range[0],
@@ -162,7 +162,7 @@ export const IPRangeProcessor = () => {
     resetProfiles();
   };
 
-  const handleCSVFile = (content: string, fileName: string) => {
+  const handleCSVFile = (content: string) => {
     const lines = content.trim().split('\n');
     const csvData: CSVRow[] = [];
     const countriesMap = new Map<string, string>();
@@ -536,7 +536,7 @@ export const IPRangeProcessor = () => {
     return Math.max(0, 100 - total);
   };
 
-  const canIncreasePercentage = (currentPercentage: number) => {
+  const canIncreasePercentage = () => {
     return getTotalPercentage() < 100;
   };
 
@@ -917,7 +917,7 @@ export const IPRangeProcessor = () => {
                     
                     <button
                       onClick={() => updateProfilePercentage(profile.id, profile.percentage + 1)}
-                      disabled={processing || !canIncreasePercentage(profile.percentage)}
+                      disabled={processing || !canIncreasePercentage()}
                       className="w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       +
