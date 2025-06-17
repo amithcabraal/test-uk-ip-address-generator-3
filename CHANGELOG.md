@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2025-01-27
+
+### Added
+- **IP Address Lookup Feature**: New mode to lookup country information for existing IP addresses
+  - Toggle between "Generate IP Addresses" and "Lookup IP Countries" modes
+  - Text area input supporting multiple IP address formats (newline, space, or comma separated)
+  - Support for quoted IP addresses (e.g., "192.168.1.1")
+  - Real-time validation of IP address format
+  - Comprehensive lookup results table showing IP, country code, country name, and found status
+  - CSV export functionality for lookup results with download button
+  - Visual indicators for found vs not found IP addresses
+  - Summary statistics showing found/not found counts
+
+### Enhanced
+- **Mode Selection Interface**: Clean toggle interface to switch between generation and lookup modes
+- **Country Data Validation**: Lookup mode only available when country data (CSV or MaxMind) is uploaded
+- **Results Display**: Professional table layout with sticky headers and scrollable results
+- **Status Indicators**: Color-coded badges showing lookup success/failure status
+- **Error Handling**: Robust validation for IP address format and empty inputs
+
+### Technical Improvements
+- **IP Range Matching**: Efficient algorithm to match IP addresses against loaded geographic ranges
+- **Input Parsing**: Flexible parser handling various IP address input formats and separators
+- **Performance Optimization**: Fast lookup using long integer comparison for IP range matching
+- **Memory Management**: Efficient handling of large lookup result sets
+- **Type Safety**: Added comprehensive TypeScript interfaces for lookup results
+
+### User Experience
+- **Intuitive Interface**: Clear mode selection with disabled states when prerequisites aren't met
+- **Real-time Feedback**: Loading states and progress indicators during lookup operations
+- **Export Functionality**: One-click CSV download of lookup results for further analysis
+- **Visual Hierarchy**: Clear distinction between found and not found results with color coding
+
 ## [1.2.1] - 2025-01-27
 
 ### Added
